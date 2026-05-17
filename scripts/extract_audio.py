@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-from mindbase_layer.audio import extract_audio_pipeline
+from mindbase_layer.utils.audio import extract_audio_pipeline
 
 __all__ = ["extract_audio_pipeline"]
 

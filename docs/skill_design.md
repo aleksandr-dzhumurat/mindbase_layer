@@ -41,7 +41,7 @@ This document specifies the design for an `audio-summarization` Claude skill tha
 
 **Steps**:
 1. Load existing `.srt` file
-2. Run `summarize_srt` to merge blocks
+2. Run `squash_srt` to merge blocks
 3. Query index and return top-k results
 
 ---
@@ -166,31 +166,6 @@ Result: `data/recognized_speech/today_standup.txt` with a concise summary.
 
 ---
 
-## Troubleshooting
-
-### Error: `FileNotFoundError` from audio_splitter
-
-Cause: Audio file path is wrong or file doesn't exist.
-Solution: Verify path with `ls` and pass the absolute path.
-
-### Error: `SRT already exists`
-
-Cause: Whisper skips files where `.srt` already exists.
-Solution: Delete existing `.srt` to force re-transcription.
-
-### No logs from retrieval.py
-
-Cause: Logging is configured inside `main()` — must be invoked as `__main__`.
-Solution: Always run via `uv run python scripts/retrieval.py`, not imported.
-
-### Merged blocks show wrong timeframes
-
-Cause: Malformed SRT header not matching `HH:MM:SS,mmm --> HH:MM:SS,mmm`.
-Solution: Validate SRT file format; `summarize_srt` splits headers on ` --> `.
-```
-
----
-
 ## Success Criteria
 
 ### Triggering
@@ -212,12 +187,81 @@ Solution: Validate SRT file format; `summarize_srt` splits headers on ` --> `.
 
 | Concern | Detail |
 |---|---|
-| Chunking | `summarize_srt` greedy-merges SRT nodes up to `window` tokens (default 8100) |
+| Chunking | `squash_srt` greedy-merges SRT nodes up to `window` tokens (default 8100) |
 | Overlap | Last 3 SRT nodes are seeded into the next buffer for context continuity |
 | Token counting | Uses tiktoken `cl100k_base` encoding |
 | Merged header | Format: `earliest_start --> latest_end` extracted by splitting on ` --> ` |
 | Gemini upload | `GeminiAdapter.audio_to_text_pipeline()` in `src/llm_adapter.py` |
 | Local transcription | `transcribe()` in `src/utils/audio.py`, uses `mlx-community/whisper-medium` |
+
+---
+
+## uv Virtual Environment Nuances
+
+This section documents the correct patterns for creating and using virtual environments with `uv` in skill runners.
+
+---
+
+### Creating the venv and installing dependencies
+
+```bash
+VENV="/tmp/mindbase-copilot-venv"
+uv venv "$VENV" -q && VIRTUAL_ENV="$VENV" uv pip install -r "$SKILL_DIR/requirements.txt" -q
+```
+
+Key: use the `VIRTUAL_ENV` environment variable to target a specific venv — `uv pip install` respects it automatically. Do **not** use `--python "$VENV/bin/python"`, which causes exit code 2:
+
+```
+error: a value is required for '[PATH]' but none was supplied
+```
+
+---
+
+### Running Python inside the venv
+
+```bash
+VIRTUAL_ENV="$VENV" uv run python - <<'EOF'
+# your Python code here
+EOF
+```
+
+Set `VIRTUAL_ENV` here too — this is consistent with the install step and more reliable than `uv run --python "$VENV"`.
+
+---
+
+### Full two-step pattern
+
+```bash
+# Step 0 — create env
+SKILL_DIR="$HOME/.claude/skills/mindbase_copilot"
+VENV="/tmp/mindbase-copilot-venv"
+uv venv "$VENV" -q && VIRTUAL_ENV="$VENV" uv pip install -r "$SKILL_DIR/requirements.txt" -q
+
+# Step 1 — run
+PYTHONPATH="$SKILL_DIR" FILE_HOME="$FILE_HOME" VIRTUAL_ENV="$VENV" uv run python - <<'EOF'
+import os
+from pathlib import Path
+from mindbase_layer import tools
+# ...
+EOF
+
+# Teardown (optional)
+rm -rf "$VENV"
+```
+
+---
+
+### Alternative: no venv management with `uv run --no-project`
+
+For ephemeral use, skip venv creation entirely:
+
+```bash
+PYTHONPATH="$SKILL_DIR" uv run --no-project --with-requirements "$SKILL_DIR/requirements.txt" python - <<'EOF'
+# your Python code here
+EOF
+```
+
+uv resolves and caches dependencies automatically. No `uv venv`, no teardown needed. First run is slightly slower; subsequent runs use uv's cache.
 
 ---
 

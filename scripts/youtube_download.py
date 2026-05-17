@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-from mindbase_layer.youtube import download_audio, download_video
+from mindbase_layer.utils.youtube import download_audio, download_video
 
 __all__ = ["download_audio", "download_video"]
 

@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-from mindbase_layer.audio import transcribe
+from mindbase_layer.utils.audio import transcribe
 
 
 if __name__ == "__main__":

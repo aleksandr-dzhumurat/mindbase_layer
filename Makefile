@@ -29,6 +29,12 @@ list-models:
 chat:
 	DATA_DIR=${CURRENT_DIR}/data/history PYTHONPATH=${CURRENT_DIR} uv run python scripts/chat.py
 
+skill:
+	uv run python scripts/prepare_skill.py
+
+skill-install:
+	uv run python scripts/prepare_skill.py --install
+
 run-jupyter:
 	DATA_DIR=${CURRENT_DIR}/data \
 	PYTHONPATH=${CURRENT_DIR}/src \

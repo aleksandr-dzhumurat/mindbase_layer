@@ -7,8 +7,8 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-from agent import SupportDependencies, langfuse, project_manager_agent
-from memory_layer import MessageHistory
+from mindbase_layer.agent import SupportDependencies, langfuse, project_manager_agent
+from mindbase_layer.agent_core.memory_layer import MessageHistory
 
 _DIM = "\033[2;37m"   # dim white (light gray)
 _RESET = "\033[0m"

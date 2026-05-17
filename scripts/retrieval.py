@@ -16,8 +16,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-from mindbase_layer.formatting import print_search_results  # noqa: E402
-from mindbase_layer.retrieve_md import DocumentIndex  # noqa: E402
+from mindbase_layer.utils.formatting import print_search_results  # noqa: E402
+from mindbase_layer.utils.retrieve_md import DocumentIndex  # noqa: E402
 
 __all__ = ["DocumentIndex"]
 

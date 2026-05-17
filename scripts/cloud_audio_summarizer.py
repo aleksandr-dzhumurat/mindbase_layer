@@ -6,8 +6,8 @@ from typing import Iterator, Optional
 from dotenv import load_dotenv
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-from mindbase_layer.common import get_logger
-from llm_adapter import GeminiAdapter
+from mindbase_layer.utils.common import get_logger
+from mindbase_layer.agent_core.llm_adapter import GeminiAdapter
 
 load_dotenv()
 

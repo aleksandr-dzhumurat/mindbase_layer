@@ -204,7 +204,7 @@ def read_srt_nodes(file_path: Path) -> list[DocumentNode]:
     return nodes
 
 
-def summarize_srt(file_path: Path, window: int = _MERGE_MAX_TOKENS) -> list[DocumentNode]:
+def squash_srt(file_path: Path, window: int = _MERGE_MAX_TOKENS) -> list[DocumentNode]:
     """Merge fine-grained SRT nodes into larger chunks of up to _MERGE_MAX_TOKENS tokens.
 
     Iterates over nodes from read_srt_nodes, accumulating text into a buffer.
@@ -241,7 +241,7 @@ def summarize_srt(file_path: Path, window: int = _MERGE_MAX_TOKENS) -> list[Docu
         merged.append(_flush(buffer))
 
     logger.info(
-        "summarize_srt: %d raw blocks → %d merged blocks (%s)",
+        "squash_srt: %d raw blocks → %d merged blocks (%s)",
         len(raw_nodes), len(merged), file_path.name,
     )
     return merged
@@ -286,6 +286,12 @@ class DocumentIndex:
     def get_childs(self, node_name: str) -> list[DocumentNode]:
         return [node for node in self._nodes if node.parent is not None and node.parent.node_name == node_name]
 
+    def to_md(self) -> str:
+        """Re-create plaintext markdown content from nodes."""
+        return "\n\n".join(
+            f"{node.header}\n{node.body}" for node in self._nodes
+        )
+
     def search(self, query: str, top_k: int = 5) -> list[tuple[float, DocumentNode]]:
         """Return top_k results ranked by TF-IDF cosine similarity."""
         query_vec = self._vectorizer.transform([query])
@@ -296,7 +302,7 @@ class DocumentIndex:
     @classmethod
     def from_md_file(cls, file_path: str | Path) -> "DocumentIndex":
         """Factory: build a DocumentIndex from a markdown file."""
-        file_path = Path(file_path)
+        file_path = Path(file_path).expanduser()
         nodes = read_md_nodes(file_path)
         if not nodes:
             raise ValueError(f"No nodes parsed from {file_path}")
@@ -309,24 +315,25 @@ class DocumentIndex:
         Fine-grained SRT entries are merged into larger chunks (up to `window` tokens)
         with a 3-entry overlap between consecutive chunks.
         """
-        nodes = summarize_srt(file_path, window=window)
+        nodes = squash_srt(file_path, window=window)
         if not nodes:
             raise ValueError(f"No nodes parsed from {file_path}")
         return cls(nodes)
 
     @classmethod
-    def from_dir(cls, dir_path: Path, ext: str | None = None) -> "DocumentIndex":
+    def from_dir(cls, dir_path: str | Path, ext: str | None = None) -> "DocumentIndex":
         """Factory: build a DocumentIndex from .md and/or .srt files in a directory tree.
 
         ext: restrict to 'md', 'srt', or None (both).
         """
+        dir_path = Path(dir_path).expanduser()
         nodes = []
         if ext in (None, "md"):
             for md_file in sorted(dir_path.rglob("*.md")):
                 nodes.extend(read_md_nodes(md_file))
         if ext in (None, "srt"):
             for srt_file in sorted(dir_path.rglob("*.srt")):
-                nodes.extend(summarize_srt(srt_file))
+                nodes.extend(squash_srt(srt_file))
         if not nodes:
             raise ValueError(f"No nodes parsed from any .{ext or 'md/.srt'} file in {dir_path}")
         return cls(nodes)
