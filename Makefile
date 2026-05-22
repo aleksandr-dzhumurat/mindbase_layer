@@ -35,6 +35,12 @@ skill:
 skill-install:
 	uv run python scripts/prepare_skill.py --install
 
+cli-install:
+	uv run python scripts/prepare_skill.py --cli
+
+cli-install-fresh:
+	uv run python scripts/prepare_skill.py --cli --force-venv
+
 run-jupyter:
 	DATA_DIR=${CURRENT_DIR}/data \
 	PYTHONPATH=${CURRENT_DIR}/src \

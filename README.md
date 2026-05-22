@@ -41,6 +41,44 @@ source .venv/bin/activate
 uv pip install -e ".[whisper]"
 ```
 
+## CLI usage
+
+Install `mindbase` as a standalone console command:
+
+```bash
+make cli-install
+```
+
+This will:
+1. Copy the package and dependencies to `~/.local/share/mindbase/`
+2. Create a Python venv and install all requirements there
+3. Prompt for your `NEBIUS_API_KEY` (input masked with `*`) and save it to `~/.local/share/mindbase/.env` (chmod 600)
+4. Create a symlink at `~/.local/bin/mindbase`
+
+If `~/.local/bin` is not on your `$PATH`, the installer will warn you and print the line to add to `~/.zshrc`.
+
+**Start the REPL:**
+
+```bash
+mindbase
+```
+
+**Reset the API key:**
+
+```bash
+rm ~/.local/share/mindbase/.env
+make cli-install
+```
+
+**Upgrade after code changes:**
+
+```bash
+make cli-install          # keeps the existing venv and .env
+make cli-install-fresh    # also rebuilds the venv from scratch
+```
+
+---
+
 ## Agent usage
 
 Run chat using
