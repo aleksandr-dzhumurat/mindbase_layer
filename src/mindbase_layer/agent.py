@@ -111,7 +111,7 @@ def pdf_to_md(_ctx: RunContext[SupportDependencies], pdf_path: str) -> str:
 
 @project_manager_agent.tool
 async def generate_subtitles(_ctx: RunContext[SupportDependencies], video_path: str, language: str = "en") -> str:
-    """Generate an SRT subtitles file from a video. language is a BCP-47 code e.g. 'en', 'ru'. Expects a full resolved path."""
+    """Generate an SRT subtitles file from a video or audio file (.mp4, .mp3, .m4a, etc.). language is a BCP-47 code e.g. 'en', 'ru', 'sr'. Expects a full resolved path."""
     return tools.generate_subtitles(video_path, language)
 
 
