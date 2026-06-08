@@ -1,13 +1,18 @@
 import re
 import subprocess
 import sys
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 
-import mlx_whisper as whisper
 from tqdm import tqdm
 
 _WHISPER_MODEL = "mlx-community/whisper-medium"
+
+try:
+    import mlx_whisper as whisper
+except ImportError:
+    whisper = None
 
 
 def extract_audio_pipeline(video_path: str = None):
@@ -17,11 +22,12 @@ def extract_audio_pipeline(video_path: str = None):
             sys.exit(1)
         video_path = sys.argv[1]
 
-    input_file = Path(video_path)
-
+    input_file = Path(unicodedata.normalize('NFC', str(video_path)))
     if not input_file.is_file():
-        print(f"Error: File '{input_file}' not found")
-        sys.exit(1)
+        # macOS stores filenames in NFD; try alternate normalization
+        input_file = Path(unicodedata.normalize('NFD', str(video_path)))
+    if not input_file.is_file():
+        raise FileNotFoundError(f"File '{video_path}' not found")
 
     output_file = input_file.with_suffix(".mp3")
 
@@ -202,6 +208,9 @@ def transcribe(audio_path: str, language: str = "en") -> str:
     if Path(srt_path).is_file():
         print(f"SRT already exists: {srt_path}")
         return srt_path
+
+    if whisper is None:
+        raise RuntimeError("mlx_whisper is not installed. Install it with: uv pip install mlx-whisper")
 
     print(f"Transcribing: {audio_path}")
     print("Loading model and processing audio (this may take a moment)...")

@@ -47,8 +47,7 @@ echo "Starting mindbase, please wait..."
 
 DATA_DIR="$DATA_DIR" \\
 PYTHONPATH="$INSTALL_ROOT" \\
-VIRTUAL_ENV="$INSTALL_ROOT/venv" \\
-uv run python "$INSTALL_ROOT/scripts/chat.py"
+"$INSTALL_ROOT/venv/bin/python" "$INSTALL_ROOT/scripts/chat.py"
 """
 
 
