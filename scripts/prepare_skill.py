@@ -178,8 +178,18 @@ def cli_install(stage_dir: Path, install_root: Path, bin_dir: Path, force_venv: 
     # 7. Write .env if not present
     env_file = install_root / ".env"
     if not env_file.exists():
-        key = _read_masked("Enter NEBIUS_API_KEY: ")
-        env_file.write_text(f"NEBIUS_API_KEY={key}\n")
+        import sys
+        sys.stdout.write(
+            "Enter VERTEX_SA_KEY_FILE (absolute path to a Google service-account .json file).\n"
+            "Press Enter to skip and use Nebius instead: "
+        )
+        sys.stdout.flush()
+        vertex_key_file = input().strip()
+        if vertex_key_file:
+            env_file.write_text(f"VERTEX_SA_KEY_FILE={vertex_key_file}\n")
+        else:
+            nebius_key = _read_masked("Enter NEBIUS_API_KEY: ")
+            env_file.write_text(f"NEBIUS_API_KEY={nebius_key}\n")
         env_file.chmod(0o600)
         print(f"Key saved to: {env_file}")
         print(f"To reset it, delete that file and re-run: make cli-install")
