@@ -6,7 +6,10 @@ from pathlib import Path
 from langfuse import get_client
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.agent import InstrumentationSettings
+from google.oauth2 import service_account
+from pydantic_ai.models.google import GoogleModel
 from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.providers.google_cloud import GoogleCloudProvider
 from pydantic_ai.providers.nebius import NebiusProvider
 
 from . import tools
@@ -38,25 +41,44 @@ class SummarizeDependencies:
     language: str
 
 
-_main_model = OpenAIChatModel(
-    'Qwen/Qwen3-32B',
-    provider=NebiusProvider(api_key=os.getenv('NEBIUS_API_KEY'))
-)
+_NEBIUS_MODEL_NAMES = {
+    'main_model': 'Qwen/Qwen3-32B',
+    'retrieval_model': 'Qwen/Qwen3-30B-A3B-Instruct-2507',
+}
 
-_retrieval_model = OpenAIChatModel(
-    'Qwen/Qwen3-30B-A3B-Instruct-2507',
-    provider=NebiusProvider(api_key=os.getenv('NEBIUS_API_KEY'))
-)
+_GOOGLE_MODEL_NAMES = {
+    'main_model': 'gemini-2.5-flash',
+    'retrieval_model': 'gemini-2.5-flash',
+}
+
+
+def get_model(model_type: str) -> GoogleModel | OpenAIChatModel:
+    vertex_sa_key_file = os.getenv('VERTEX_SA_KEY_FILE')
+    if vertex_sa_key_file:
+        credentials = service_account.Credentials.from_service_account_file(
+            vertex_sa_key_file,
+            scopes=['https://www.googleapis.com/auth/cloud-platform'],
+        )
+        provider = GoogleCloudProvider(
+            credentials=credentials,
+            project=os.getenv('GOOGLE_CLOUD_PROJECT', 'ai-agent-delivery'),
+        )
+        return GoogleModel(_GOOGLE_MODEL_NAMES[model_type], provider=provider)
+
+    api_key = os.getenv('NEBIUS_API_KEY')
+    if not api_key:
+        raise RuntimeError('NEBIUS_API_KEY environment variable is not set')
+    return OpenAIChatModel(_NEBIUS_MODEL_NAMES[model_type], provider=NebiusProvider(api_key=api_key))
 
 retrieval_agent = Agent(
-    _retrieval_model,
+    get_model('retrieval_model'),
     instructions=RETRIEVAL_AGENT_INSTRUCTIONS,
     deps_type=RetrievalDependencies,
     output_type=str,
 )
 
 _summarizer_agent = Agent(
-    _main_model,
+    get_model('main_model'),
     instructions=SUMMARIZE_INSTRUCTIONS,
     deps_type=SummarizeDependencies,
     output_type=str,
@@ -78,7 +100,7 @@ def query_documents(ctx: RunContext[RetrievalDependencies], query: str) -> str:
 
 
 project_manager_agent = Agent(
-    _main_model,
+    get_model('main_model'),
     instructions=PROJECT_MANAGER_INSTRUCTIONS,
     deps_type=SupportDependencies
 )
