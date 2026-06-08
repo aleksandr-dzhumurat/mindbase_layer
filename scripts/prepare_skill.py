@@ -9,9 +9,13 @@ Usage:
 """
 
 import argparse
+import itertools
 import os
 import shutil
 import subprocess
+import sys
+import threading
+import time
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).parent.parent
@@ -97,6 +101,28 @@ def install(stage_dir: Path, install_dir: Path) -> None:
     print(f"Installed skill at: {install_dir}")
 
 
+def _run_with_spinner(label: str, cmd: list[str], **kwargs) -> None:
+    """Run a subprocess while showing an ASCII spinner."""
+    frames = itertools.cycle(["|", "/", "-", "\\"])
+    done = threading.Event()
+
+    def _spin() -> None:
+        while not done.is_set():
+            sys.stdout.write(f"\r{label} {next(frames)}")
+            sys.stdout.flush()
+            time.sleep(0.1)
+
+    t = threading.Thread(target=_spin, daemon=True)
+    t.start()
+    try:
+        subprocess.run(cmd, check=True, **kwargs)
+    finally:
+        done.set()
+        t.join()
+        sys.stdout.write(f"\r{label} done\n")
+        sys.stdout.flush()
+
+
 def _read_masked(prompt: str) -> str:
     """Read a password from stdin, echoing '*' for each character typed."""
     import sys
@@ -156,18 +182,17 @@ def cli_install(stage_dir: Path, install_root: Path, bin_dir: Path, force_venv: 
         shutil.rmtree(venv_dir)
         print(f"Removed existing venv at {venv_dir}")
     if not venv_dir.exists():
-        subprocess.run(["uv", "venv", str(venv_dir), "-q"], check=True)
-        print(f"Created venv at {venv_dir}")
+        _run_with_spinner(f"Creating venv at {venv_dir}...", ["uv", "venv", str(venv_dir), "-q"])
     else:
         print(f"Venv exists, skipping (use --force-venv to rebuild)")
 
     # 5. Install deps
     env = {**os.environ, "VIRTUAL_ENV": str(venv_dir)}
-    subprocess.run(
+    _run_with_spinner(
+        "Installing dependencies...",
         ["uv", "pip", "install", "-r", str(install_root / "requirements.txt"), "-q"],
-        check=True, env=env,
+        env=env,
     )
-    print("Dependencies installed")
 
     # 6. Write mindbase.sh
     sh_path = install_root / "mindbase.sh"
@@ -178,7 +203,6 @@ def cli_install(stage_dir: Path, install_root: Path, bin_dir: Path, force_venv: 
     # 7. Write .env if not present
     env_file = install_root / ".env"
     if not env_file.exists():
-        import sys
         sys.stdout.write(
             "Enter VERTEX_SA_KEY_FILE (absolute path to a Google service-account .json file).\n"
             "Press Enter to skip and use Nebius instead: "

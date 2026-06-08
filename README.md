@@ -4,6 +4,33 @@ Token-efficient retrieval layer for agentic pipeline.
 
 ## Installation
 
+
+### CLI usage
+
+Install `mindbase` as a standalone console command:
+
+```bash
+make cli-install
+```
+
+This will:
+1. Copy the package and dependencies to `~/.local/share/mindbase/`
+2. Create a Python venv and install all requirements there
+3. Prompt for an API key and save it to `~/.local/share/mindbase/.env` (chmod 600):
+   - First asks for `VERTEX_SA_KEY_FILE` — provide the **absolute path** to a Google service-account `.json` file, or press **Enter** to skip
+   - If skipped, asks for `NEBIUS_API_KEY` (input masked with `*`)
+   - Only one key is required; if `VERTEX_SA_KEY_FILE` is set, `NEBIUS_API_KEY` is not needed
+4. Create a symlink at `~/.local/bin/mindbase`
+
+If `~/.local/bin` is not on your `$PATH`, the installer will warn you and print the line to add to `~/.zshrc`.
+
+**Start the REPL:**
+
+```bash
+mindbase
+```
+
+
 ### As a Python package (from GitHub)
 
 Install `mindbase_layer` into external project:
@@ -39,31 +66,6 @@ mindbase-layer @ git+https://github.com/aleksandr-dzhumurat/automation_toolkit.g
 uv venv
 source .venv/bin/activate
 uv pip install -e ".[whisper]"
-```
-
-## CLI usage
-
-Install `mindbase` as a standalone console command:
-
-```bash
-make cli-install
-```
-
-This will:
-1. Copy the package and dependencies to `~/.local/share/mindbase/`
-2. Create a Python venv and install all requirements there
-3. Prompt for an API key and save it to `~/.local/share/mindbase/.env` (chmod 600):
-   - First asks for `VERTEX_SA_KEY_FILE` — provide the **absolute path** to a Google service-account `.json` file, or press **Enter** to skip
-   - If skipped, asks for `NEBIUS_API_KEY` (input masked with `*`)
-   - Only one key is required; if `VERTEX_SA_KEY_FILE` is set, `NEBIUS_API_KEY` is not needed
-4. Create a symlink at `~/.local/bin/mindbase`
-
-If `~/.local/bin` is not on your `$PATH`, the installer will warn you and print the line to add to `~/.zshrc`.
-
-**Start the REPL:**
-
-```bash
-mindbase
 ```
 
 **Reset the API key:**
