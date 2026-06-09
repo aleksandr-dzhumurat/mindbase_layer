@@ -137,6 +137,24 @@ def m4a_to_mp3(input_path: str) -> str:
     return f"MP3 saved to: {output_file}"
 
 
+async def translate_file(md_path: str, translating_agent, deps_cls, usage) -> str:
+    """Read a markdown file and translate its content from Russian to English using translating_agent.
+    Writes the result to a sibling file with _en suffix and returns its path."""
+    path = Path(md_path).expanduser().resolve()
+    if not path.is_file():
+        return f"File not found: {path}"
+    text = path.read_text(encoding="utf-8")
+    result = await translating_agent.run(
+        text,
+        deps=deps_cls(text=text),
+        usage=usage,
+    )
+    out_path = path.with_name(f"{path.stem}_en{path.suffix}")
+    out_path.write_text(result.output, encoding="utf-8")
+    logger.info("translate_file: saved translation to %s", out_path)
+    return str(out_path.resolve())
+
+
 def remove_file(file_path: str) -> str:
     """Delete a file or directory. Uses shutil.rmtree for directories, Path.unlink for files."""
     path = Path(file_path).expanduser().resolve()

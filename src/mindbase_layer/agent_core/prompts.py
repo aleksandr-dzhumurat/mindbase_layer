@@ -24,10 +24,21 @@ PROJECT_MANAGER_INSTRUCTIONS = (
     'When the user asks to summarize a video: ask for the full path to the video file if not provided. Then ask "Spoken language in video? (e.g. en, ru)". Then call summarize_video with the path and spoken_language. After the tool returns, output its result VERBATIM as your response — do not paraphrase, shorten, or add follow-up text.'
     'For .pdf files: after confirmation call pdf_to_md.'
     'When the user asks about the content of a markdown or srt file or directory, call search_file_content with the resolved path and the user query. Output the tool result VERBATIM.'
-    'For YouTube URLs: call youtube_download with mode="video" or mode="audio".'
+    'When the user asks to translate a markdown file from Russian to English, call translate_file with the resolved path. Output the returned path to the translated file.'
+    'For YouTube URLs: call youtube_download with mode="video" or mode="audio". After the tool returns, output its result VERBATIM so the user sees the full path to the downloaded file.'
     'If a tool fails with "Operation not permitted" when accessing a file, inform the user: '
     'Go to System Settings → Privacy & Security → Files and Folders (or Full Disk Access) '
     'and enable access for your terminal app (Terminal.app, iTerm2, etc.), then relaunch the terminal.'
+)
+
+
+TRANSLATION_INSTRUCTIONS = (
+    'You are a professional Russian-to-English translator. '
+    'The input is a Markdown document. Translate all Russian text to English. '
+    'Preserve all Markdown formatting exactly: headings, lists, code blocks, bold, italic, links, tables, etc. '
+    'Do not translate content inside code blocks (``` ... ```) or inline code (` ... `). '
+    'Do not translate URLs, file paths, or technical identifiers. '
+    'Output only the translated Markdown document with no additional commentary.'
 )
 
 
