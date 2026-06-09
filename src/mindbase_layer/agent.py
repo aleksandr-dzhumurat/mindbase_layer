@@ -17,6 +17,7 @@ from .agent_core.prompts import (
     PROJECT_MANAGER_INSTRUCTIONS,
     RETRIEVAL_AGENT_INSTRUCTIONS,
     SUMMARIZE_INSTRUCTIONS,
+    TRANSLATION_INSTRUCTIONS,
     home_dir_prompt,
 )
 
@@ -41,14 +42,21 @@ class SummarizeDependencies:
     language: str
 
 
+@dataclass
+class TranslationDependencies:
+    text: str
+
+
 _NEBIUS_MODEL_NAMES = {
     'main_model': 'Qwen/Qwen3-32B',
     'retrieval_model': 'Qwen/Qwen3-30B-A3B-Instruct-2507',
+    'translation_model': 'Qwen/Qwen3-32B',
 }
 
 _GOOGLE_MODEL_NAMES = {
     'main_model': 'gemini-2.5-flash',
     'retrieval_model': 'gemini-2.5-flash',
+    'translation_model': 'gemini-2.5-flash',
 }
 
 
@@ -74,6 +82,13 @@ retrieval_agent = Agent(
     get_model('retrieval_model'),
     instructions=RETRIEVAL_AGENT_INSTRUCTIONS,
     deps_type=RetrievalDependencies,
+    output_type=str,
+)
+
+translation_agent = Agent(
+    get_model('translation_model'),
+    instructions=TRANSLATION_INSTRUCTIONS,
+    deps_type=TranslationDependencies,
     output_type=str,
 )
 
@@ -145,13 +160,10 @@ async def summarize_video(ctx: RunContext[SupportDependencies], video_path: str,
     return await tools.summarize_video(video_path, spoken_language, _summarizer_agent, SummarizeDependencies, ctx.usage)
 
 
-_YOUTUBE_DIR = Path(__file__).parent.parent / "data" / "youtube"
-
-
 @project_manager_agent.tool
 async def youtube_download(_ctx: RunContext[SupportDependencies], url: str, mode: str = "video") -> str:
     """Download a YouTube video or audio track. mode must be 'video' or 'audio'."""
-    return await tools.youtube_download(url, mode, _YOUTUBE_DIR)
+    return await tools.youtube_download(url, mode, Path.home() / "Downloads")
 
 
 @project_manager_agent.tool
@@ -170,3 +182,9 @@ def remove_file(_ctx: RunContext[SupportDependencies], file_path: str) -> str:
 async def search_file_content(ctx: RunContext[SupportDependencies], md_path: str, query: str) -> str:
     """Search the content of a markdown file or directory using the retrieval agent."""
     return await tools.search_file_content(md_path, query, retrieval_agent, RetrievalDependencies, ctx.usage)
+
+
+@project_manager_agent.tool
+async def translate_file(ctx: RunContext[SupportDependencies], md_path: str) -> str:
+    """Translate a markdown file from Russian to English. Writes output to a sibling file with _en suffix and returns its path."""
+    return await tools.translate_file(md_path, translation_agent, TranslationDependencies, ctx.usage)
