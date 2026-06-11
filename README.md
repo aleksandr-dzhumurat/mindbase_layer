@@ -4,6 +4,8 @@ Token-efficient retrieval layer for agentic pipeline.
 
 ## Installation
 
+[![mindbase demo](http://img.youtube.com/vi/uupB2A7dG5k/0.jpg)](http://www.youtube.com/watch?v=uupB2A7dG5k "mindbase demo")
+
 
 ### CLI usage
 
