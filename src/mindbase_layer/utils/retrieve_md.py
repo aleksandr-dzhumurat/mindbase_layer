@@ -321,6 +321,35 @@ class DocumentIndex:
         return cls(nodes)
 
     @classmethod
+    def from_jsonl(
+        cls,
+        file_path: str | Path,
+        mapping: dict[str, str] | None = None,
+    ) -> "DocumentIndex":
+        """Factory: build a DocumentIndex from a JSONL file.
+
+        mapping maps DocumentNode fields to JSONL keys, e.g.
+        {"header": "title", "body": "url", "source": "source"}.
+        """
+        import json
+        if mapping is None:
+            mapping = {"header": "title", "body": "url", "source": "source"}
+        file_path = Path(file_path).expanduser()
+        nodes = []
+        for line in file_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            record = json.loads(line)
+            header = record[mapping["header"]]
+            body = record[mapping["body"]]
+            source = Path(record[mapping["source"]])
+            nodes.append(DocumentNode(header=header, body=body, source=source))
+        if not nodes:
+            raise ValueError(f"No records parsed from {file_path}")
+        return cls(nodes)
+
+    @classmethod
     def from_dir(cls, dir_path: str | Path, ext: str | None = None) -> "DocumentIndex":
         """Factory: build a DocumentIndex from .md and/or .srt files in a directory tree.
 

@@ -32,6 +32,40 @@ If `~/.local/bin` is not on your `$PATH`, the installer will warn you and print 
 mindbase
 ```
 
+**Available scenarios (interactive REPL):**
+
+- **Transcribing** — point the agent to a video or audio file (.mp4, .mp3, .m4a) and it will generate `.srt` subtitles using local Whisper inference
+- **Summarizing** — ask the agent to summarize a video lecture; it transcribes first (if needed), then produces a structured markdown summary
+- **Translation** — ask the agent to translate a markdown file from Russian to English; the result is saved as a `_en.md` sibling file
+- **YouTube download** — paste a YouTube URL and the agent downloads the video or audio track to `~/Downloads`
+- **PDF to Markdown** — point the agent to a PDF file and it converts it to markdown
+- **File search** — ask the agent to find files across Downloads, Documents and PycharmProjects
+
+**Standalone CLI scripts:**
+
+```bash
+# Download YouTube video or audio
+uv run python scripts/youtube_download.py --url <youtube_url> --mode video
+
+# Search markdown/SRT files with TF-IDF
+uv run python scripts/retrieval.py --path path/to/file.md --query "search term" --top-k 5
+
+# Convert PDF to markdown (optionally extract specific pages)
+uv run python scripts/pdf_to_md.py --input file.pdf --start 1 --end 10
+
+# Transcribe audio to SRT subtitles (Apple Silicon, mlx-whisper)
+uv run python scripts/whisper_to_srt.py audio.mp3
+
+# Extract audio track from video
+uv run python scripts/extract_audio.py video.mp4
+
+# Split audio into chunks at silence points
+uv run python scripts/audio_splitter.py audio.mp3 --min-interval 300 --max-interval 500
+
+# Merge transcribed text files
+uv run python scripts/text_merger.py --prefix recording_chunk
+```
+
 
 ### As a Python package (from GitHub)
 
