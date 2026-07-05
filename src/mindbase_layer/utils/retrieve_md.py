@@ -10,6 +10,33 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 logger = logging.getLogger(__name__)
 
 _TIKTOKEN_ENCODING = "cl100k_base"
+
+# ---------------------------------------------------------------------------
+# Text filters – remove noise before embedding / retrieval
+# ---------------------------------------------------------------------------
+
+_RE_CODE_BLOCK = re.compile(r"```python\s*\n.*?```", re.DOTALL)
+_RE_LATEX_BLOCK = re.compile(r"\$\$.*?\$\$", re.DOTALL)
+_RE_LATEX_INLINE = re.compile(r"\$[^$\n]+\$")
+_RE_MD_LINK = re.compile(r"\[([^\]]*)\]\(https?://[^\)]+\)")
+_RE_BARE_URL = re.compile(r"https?://\S+")
+
+
+def strip_code_blocks(text: str) -> str:
+    """Remove fenced Python code blocks (```python ... ```)."""
+    return _RE_CODE_BLOCK.sub("", text)
+
+
+def strip_latex(text: str) -> str:
+    """Remove LaTeX formulas: multi-line $$...$$ and inline $...$."""
+    text = _RE_LATEX_BLOCK.sub("", text)
+    return _RE_LATEX_INLINE.sub("", text)
+
+
+def strip_urls(text: str) -> str:
+    """Clean URLs: markdown links keep title, bare URLs removed."""
+    text = _RE_MD_LINK.sub(r"\1", text)
+    return _RE_BARE_URL.sub("", text)
 _MERGE_MAX_TOKENS = 512
 _OVERLAP_BLOCKS = 3
 
@@ -165,8 +192,12 @@ def read_md_nodes(file_path: Path) -> list[DocumentNode]:
         return []
 
     content = file_path.read_text(encoding="utf-8")
+    # Pre-chunking filters: remove code blocks and LaTeX formulas
+    content = strip_code_blocks(content)
+    content = strip_latex(content)
+
     nodes = [
-        DocumentNode(header=header_line, body=body, source=file_path)
+        DocumentNode(header=header_line, body=strip_urls(body), source=file_path)
         for _, header_line, body in _parse_sections(content)
     ]
 
