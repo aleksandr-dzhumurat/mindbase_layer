@@ -53,6 +53,8 @@ class DocumentNode:
     body: str | None = None
     source: Path | None = None
     parent: "DocumentNode | None" = None
+    line_start: int | None = None
+    line_end: int | None = None
     node_name: str = field(init=False)
 
     def __post_init__(self):
@@ -192,14 +194,18 @@ def read_md_nodes(file_path: Path) -> list[DocumentNode]:
         return []
 
     content = file_path.read_text(encoding="utf-8")
-    # Pre-chunking filters: remove code blocks and LaTeX formulas
-    content = strip_code_blocks(content)
-    content = strip_latex(content)
-
-    nodes = [
-        DocumentNode(header=header_line, body=strip_urls(body), source=file_path)
-        for _, header_line, body in _parse_sections(content)
-    ]
+    # Parse sections on original content so line numbers stay correct
+    sections = _parse_sections(content)
+    total_lines = len(content.splitlines())
+    nodes = []
+    for i, (line_num, header_line, body) in enumerate(sections):
+        line_end = sections[i + 1][0] - 1 if i + 1 < len(sections) else total_lines
+        # Strip code blocks, LaTeX, and URLs from body text only
+        clean_body = strip_urls(strip_latex(strip_code_blocks(body)))
+        nodes.append(DocumentNode(
+            header=header_line, body=clean_body, source=file_path,
+            line_start=line_num, line_end=line_end,
+        ))
 
     stack: list[tuple[int, DocumentNode]] = []
     for node in nodes:
@@ -221,17 +227,32 @@ def read_srt_nodes(file_path: Path) -> list[DocumentNode]:
 
     nodes = []
     content = file_path.read_text(encoding="utf-8")
-    blocks = re.split(r'\n\n+', content.strip())
-    for block in blocks:
-        lines = block.strip().splitlines()
-        if len(lines) < 3:
+    all_lines = content.splitlines()
+    # Walk through lines to find SRT blocks with their positions
+    i = 0
+    while i < len(all_lines):
+        # Skip blank lines
+        if not all_lines[i].strip():
+            i += 1
             continue
-        # lines[0] = index, lines[1] = timestamp, lines[2:] = text
-        timestamp = lines[1].strip()
-        body = " ".join(line.strip() for line in lines[2:])
+        block_start = i + 1  # 1-based
+        # Collect contiguous non-blank lines as one SRT block
+        block_lines = []
+        while i < len(all_lines) and all_lines[i].strip():
+            block_lines.append(all_lines[i].strip())
+            i += 1
+        block_end = i  # 1-based (last non-blank line)
+        if len(block_lines) < 3:
+            continue
+        # block_lines[0] = index, [1] = timestamp, [2:] = text
+        timestamp = block_lines[1]
+        body = " ".join(block_lines[2:])
         if not body:
             continue
-        nodes.append(DocumentNode(header=timestamp, body=body, source=file_path))
+        nodes.append(DocumentNode(
+            header=timestamp, body=body, source=file_path,
+            line_start=block_start, line_end=block_end,
+        ))
     return nodes
 
 
@@ -257,7 +278,10 @@ def squash_srt(file_path: Path, window: int = _MERGE_MAX_TOKENS) -> list[Documen
         end = buf[-1].header.split(' --> ')[-1]
         header = f"{start} --> {end}"
         body = " ".join(n.body for n in buf)
-        return DocumentNode(header=header, body=body, source=file_path)
+        return DocumentNode(
+            header=header, body=body, source=file_path,
+            line_start=buf[0].line_start, line_end=buf[-1].line_end,
+        )
 
     for node in raw_nodes:
         node_tokens = len(enc.encode(node.body))
@@ -349,6 +373,35 @@ class DocumentIndex:
         nodes = squash_srt(file_path, window=window)
         if not nodes:
             raise ValueError(f"No nodes parsed from {file_path}")
+        return cls(nodes)
+
+    @classmethod
+    def from_jsonl(
+        cls,
+        file_path: str | Path,
+        mapping: dict[str, str] | None = None,
+    ) -> "DocumentIndex":
+        """Factory: build a DocumentIndex from a JSONL file.
+
+        mapping maps DocumentNode fields to JSONL keys, e.g.
+        {"header": "title", "body": "url", "source": "source"}.
+        """
+        import json
+        if mapping is None:
+            mapping = {"header": "title", "body": "url", "source": "source"}
+        file_path = Path(file_path).expanduser()
+        nodes = []
+        for line in file_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            record = json.loads(line)
+            header = record[mapping["header"]]
+            body = record[mapping["body"]]
+            source = Path(record[mapping["source"]])
+            nodes.append(DocumentNode(header=header, body=body, source=source))
+        if not nodes:
+            raise ValueError(f"No records parsed from {file_path}")
         return cls(nodes)
 
     @classmethod
