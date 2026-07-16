@@ -3,10 +3,12 @@ Extract a page range from a PDF and optionally clean image markers from a markdo
 
 To install dependencies:
     uv pip install pypdf docling
+    uv pip install paddleocr           # for --backend paddle
 
 Usage:
+    uv run python scripts/pdf_to_md.py --input $(pwd)/data/long_boring_demo.pdf
     uv run python scripts/pdf_to_md.py --start 148 --end 155 --input $(pwd)/data/long_boring_demo.pdf
-    uv run python scripts/pdf_to_md.py --input $(pwd)/week_01_agents_shrinked.pdf
+    uv run python scripts/pdf_to_md.py --input $(pwd)/file.pdf --backend paddle
 """
 
 import argparse
@@ -16,11 +18,11 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-from mindbase_layer.utils.pdf_to_md import convert, filter_pages, get_pdf_num_pages, reformat_image_links, remove_images
+from mindbase_layer.utils.pdf_to_md import convert, convert_paddle, filter_pages, get_pdf_num_pages, reformat_image_links, remove_images
 
-__all__ = ["convert", "filter_pages", "get_pdf_num_pages", "reformat_image_links", "remove_images"]
+__all__ = ["convert", "convert_paddle", "filter_pages", "get_pdf_num_pages", "reformat_image_links", "remove_images"]
 
-def _process_single(pdf_path: Path, start: int, end: int | None, clear: bool = False) -> None:
+def _process_single(pdf_path: Path, start: int, end: int | None, clear: bool = False, backend: str = "docling") -> None:
     end_provided = end is not None
     if end is None:
         end = get_pdf_num_pages(pdf_path)
@@ -30,14 +32,15 @@ def _process_single(pdf_path: Path, start: int, end: int | None, clear: bool = F
     else:
         extracted_pdf = filter_pages(start, end, pdf_path)
 
-    convert(extracted_pdf, start)
-
-    output_dir = extracted_pdf.resolve().with_suffix("")
-    reformat_image_links(output_dir)
-
-    if clear and output_dir.exists():
-        shutil.rmtree(output_dir)
-        logging.info("Removed output dir %s", output_dir)
+    if backend == "paddle":
+        convert_paddle(extracted_pdf)
+    else:
+        convert(extracted_pdf, start)
+        output_dir = extracted_pdf.resolve().with_suffix("")
+        reformat_image_links(output_dir)
+        if clear and output_dir.exists():
+            shutil.rmtree(output_dir)
+            logging.info("Removed output dir %s", output_dir)
 
     logging.info("Done! Processed %d pages from %s.", end - start + 1, pdf_path.name)
 
@@ -48,6 +51,7 @@ if __name__ == "__main__":
     parser.add_argument("--end", type=int, help="Last page to extract (1-indexed)")
     parser.add_argument("--input", type=Path, required=True, help="Path to source PDF file or directory")
     parser.add_argument("--clear", action="store_true", help="Remove output_dir after reformatting image links")
+    parser.add_argument("--backend", type=str, default="docling", choices=["docling", "paddle"], help="Conversion backend (default: docling)")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -67,7 +71,7 @@ if __name__ == "__main__":
                     _maybe_clear(pdf_file)
                 continue
             logging.info("Converting %s ...", pdf_file.name)
-            _process_single(pdf_file, start=1, end=None, clear=args.clear)
+            _process_single(pdf_file, start=1, end=None, clear=args.clear, backend=args.backend)
     else:
         md_output = args.input.with_suffix(".md")
         if md_output.exists():
@@ -75,4 +79,4 @@ if __name__ == "__main__":
             if args.clear:
                 _maybe_clear(args.input)
         else:
-            _process_single(args.input, args.start, args.end, clear=args.clear)
+            _process_single(args.input, args.start, args.end, clear=args.clear, backend=args.backend)

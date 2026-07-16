@@ -1,13 +1,10 @@
 import logging
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 import pypdf
-from docling.datamodel.base_models import InputFormat
-from docling.datamodel.pipeline_options import PdfPipelineOptions
-from docling.document_converter import DocumentConverter, PdfFormatOption
-from docling.exceptions import ConversionError
-from docling_core.types.doc import ImageRefMode, PictureItem, TableItem
 
 
 def filter_pages(start, end, pdf_path):
@@ -81,8 +78,101 @@ def reformat_image_links(output_dir: Path) -> None:
     logging.info("Created: %s (image links updated: %d)", dest, image_count)
 
 
+def convert_mineru(pdf_path: Path) -> Path:
+    """Convert a PDF to markdown using MinerU (mineru CLI).
+
+    Returns the path to the generated .md file.
+    """
+    pdf_path = Path(pdf_path).resolve()
+    output_dir = pdf_path.parent
+
+    try:
+        import magic_pdf  # noqa: F401
+    except ImportError:
+        raise SystemExit(
+            'MinerU is not installed. Install it with:\n'
+            '  uv pip install "magic-pdf[full]"'
+        )
+
+    cmd = [sys.executable, "-m", "magic_pdf.cli", "-p", str(pdf_path), "-o", str(output_dir)]
+    logging.info("Running: %s", " ".join(cmd))
+    subprocess.run(cmd, check=True)
+
+    # MinerU writes to <output_dir>/<stem>/<stem>.md
+    result_dir = output_dir / pdf_path.stem
+    md_candidates = list(result_dir.glob("*.md"))
+    if not md_candidates:
+        raise FileNotFoundError(f"MinerU did not produce a .md file in {result_dir}")
+
+    md_path = md_candidates[0]
+    # Move .md one level up next to the PDF for consistency
+    dest = output_dir / f"{pdf_path.stem}.md"
+    if not dest.exists():
+        md_path.rename(dest)
+        logging.info("Moved %s -> %s", md_path, dest)
+    else:
+        logging.info("Output already exists: %s", dest)
+
+    return dest
+
+
+def convert_paddle(pdf_path: Path) -> Path:
+    """Convert a PDF to markdown using PaddleOCR (PP-StructureV3).
+
+    Returns the path to the generated .md file.
+    """
+    try:
+        from paddleocr import PPStructureV3
+    except ImportError:
+        raise SystemExit(
+            'PaddleOCR is not installed. Install it with:\n'
+            '  uv pip install paddleocr'
+        )
+
+    pdf_path = Path(pdf_path).resolve()
+    output_dir = pdf_path.parent / pdf_path.stem
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    logging.info("Running PaddleOCR PP-StructureV3 on %s", pdf_path)
+    pipeline = PPStructureV3()
+    output = pipeline.predict(str(pdf_path))
+    for res in output:
+        res.save_to_markdown(save_path=str(output_dir))
+
+    md_candidates = list(output_dir.glob("*.md"))
+    if not md_candidates:
+        raise FileNotFoundError(f"PaddleOCR did not produce a .md file in {output_dir}")
+
+    # Rewrite image paths and move .md up (same as reformat_image_links for docling)
+    md_path = md_candidates[0]
+    dest = pdf_path.parent / f"{pdf_path.stem}.md"
+    if not dest.exists():
+        content = md_path.read_text(encoding="utf-8")
+        dirname = output_dir.name
+        # Prefix bare image filenames with the subdir name
+        content = re.sub(
+            r'!\[([^\]]*)\]\(([^/)][^)]*)\)',
+            lambda m: f"![{m.group(1)}]({dirname}/{m.group(2)})",
+            content,
+        )
+        dest.write_text(content, encoding="utf-8")
+        md_path.unlink()
+        image_count = content.count("![")
+        logging.info("Created %s (image refs updated: %d)", dest, image_count)
+    else:
+        logging.info("Output already exists: %s", dest)
+
+    return dest
+
+
 def convert(pdf_path: Path, start_page: int) -> None:
-    """Convert a PDF to markdown with extracted images, adding slide numbers."""
+    """Convert a PDF to markdown with extracted images using docling, adding slide numbers."""
+    from docling.datamodel.base_models import InputFormat
+    from docling.datamodel.pipeline_options import PdfPipelineOptions
+    from docling.document_converter import DocumentConverter, PdfFormatOption
+    from docling.exceptions import ConversionError
+    from docling_core.types.doc import ImageRefMode, PictureItem, TableItem
+
     pdf_path = Path(pdf_path).resolve()
     output_dir = pdf_path.with_suffix("")  # e.g. data/my_file_148-155/
     output_dir.mkdir(parents=True, exist_ok=True)
