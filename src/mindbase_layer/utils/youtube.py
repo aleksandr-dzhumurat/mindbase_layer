@@ -7,7 +7,7 @@ from pytubefix.cli import on_progress
 
 def download_video(url: str, output_dir: Path | None = None) -> Path:
     """Download a YouTube video at highest resolution. Returns the saved file path."""
-    yt = YouTube(url, on_progress_callback=on_progress)
+    yt = YouTube(url, on_progress_callback=on_progress, use_po_token=True)
     stream = yt.streams.get_highest_resolution()
     if stream is None:
         raise ValueError(f"No video stream found for {url}")
@@ -21,7 +21,7 @@ def download_video(url: str, output_dir: Path | None = None) -> Path:
 
 def download_audio(url: str, output_dir: Path | None = None) -> Path:
     """Download a YouTube video as MP3 audio. Returns the saved file path."""
-    yt = YouTube(url, on_progress_callback=on_progress)
+    yt = YouTube(url, on_progress_callback=on_progress, use_po_token=True)
     stream = yt.streams.get_audio_only()
     if stream is None:
         raise ValueError(f"No audio stream found for {url}")

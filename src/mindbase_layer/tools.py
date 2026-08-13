@@ -2,7 +2,7 @@ import logging
 import shutil
 from pathlib import Path
 
-from .utils.audio import convert_to_mp3, extract_audio_pipeline, transcribe
+from .utils.media import convert_to_mp3, extract_audio_pipeline, transcribe
 from .utils.pdf_to_md import convert, reformat_image_links
 from .utils.retrieve_md import DocumentIndex, DocumentNode, squash_srt
 from .utils.youtube import download_audio as yt_download_audio
@@ -113,7 +113,7 @@ async def summarize_video(video_path: str, spoken_language: str, summarizing_age
         deps=deps_cls(text=full_text, language=spoken_language),
         usage=usage,
     )
-    u = result.usage()
+    u = result.usage
     logger.info("summarize_video tokens: input=%d output=%d total=%d", u.input_tokens, u.output_tokens, u.input_tokens + u.output_tokens)
     summary_path = srt_path.with_name(f"{srt_path.stem}_summary.md")
     summary_path.write_text(result.output, encoding="utf-8")

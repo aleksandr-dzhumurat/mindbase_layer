@@ -18,7 +18,7 @@ except ImportError:
 def extract_audio_pipeline(video_path: str = None):
     if video_path is None:
         if len(sys.argv) < 2:
-            print("Usage: python scripts/extract_audio.py <path_to_video_file>")
+            print("Usage: python scripts/process_media.py extract <path_to_video_file>")
             sys.exit(1)
         video_path = sys.argv[1]
 
@@ -44,6 +44,45 @@ def extract_audio_pipeline(video_path: str = None):
     )
 
     print(f"Done! Audio saved to: {output_file}")
+    return output_file
+
+
+def compress_video_pipeline(video_path: str, bitrate_kbps: int = 800) -> Path:
+    """Compress a lecture-style video using the VideoToolbox H.264 encoder.
+
+    Downscales to 1280px width at 15fps and re-encodes audio to mono AAC,
+    trading quality for size on talking-head/screen-recording content.
+    """
+    input_file = Path(video_path)
+    if not input_file.is_file():
+        raise FileNotFoundError(f"File not found: {input_file}")
+    output_file = input_file.with_name(input_file.stem + "_compressed.mp4")
+    if output_file.is_file():
+        print(f"Compressed video already exists: {output_file}")
+        return output_file
+
+    print(f"Input:   {input_file}")
+    print(f"Output:  {output_file}")
+    print(f"Bitrate: {bitrate_kbps}k")
+
+    subprocess.run(
+        [
+            "ffmpeg", "-nostdin", "-i", str(input_file),
+            "-vf", "scale=1280:-2,fps=15",
+            "-c:v", "h264_videotoolbox",
+            "-b:v", f"{bitrate_kbps}k",
+            "-profile:v", "main",
+            "-movflags", "+faststart",
+            "-c:a", "aac",
+            "-ac", "1",
+            "-b:a", "96k",
+            "-y",
+            str(output_file),
+        ],
+        check=True,
+    )
+
+    print(f"Done! Compressed video saved to: {output_file}")
     return output_file
 
 

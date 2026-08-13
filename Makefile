@@ -29,17 +29,19 @@ list-models:
 chat:
 	DATA_DIR=${CURRENT_DIR}/data/history PYTHONPATH=${CURRENT_DIR} uv run python scripts/chat.py
 
-skill:
-	uv run python scripts/prepare_skill.py
-
-skill-install:
-	uv run python scripts/prepare_skill.py --install
-
-cli-install:
-	uv run python scripts/prepare_skill.py --cli
+install: cli-uninstall
+	uv run python scripts/prepare_cli.py
 
 cli-install-fresh:
-	uv run python scripts/prepare_skill.py --cli --force-venv
+	uv run python scripts/prepare_cli.py --force-venv
+
+cli-uninstall:
+	rm -f $(HOME)/.local/bin/mindbase $(HOME)/.local/bin/mindbase-cli
+	rm -rf $(HOME)/.local/share/mindbase
+	@echo "mindbase uninstalled."
+
+follow:
+	tail -f $(HOME)/.local/share/mindbase/workflow.log
 
 run-jupyter:
 	DATA_DIR=${CURRENT_DIR}/data \

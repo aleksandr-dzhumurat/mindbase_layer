@@ -192,7 +192,7 @@ Result: `data/recognized_speech/today_standup.txt` with a concise summary.
 | Token counting | Uses tiktoken `cl100k_base` encoding |
 | Merged header | Format: `earliest_start --> latest_end` extracted by splitting on ` --> ` |
 | Gemini upload | `GeminiAdapter.audio_to_text_pipeline()` in `src/llm_adapter.py` |
-| Local transcription | `transcribe()` in `src/utils/audio.py`, uses `mlx-community/whisper-medium` |
+| Local transcription | `transcribe()` in `src/mindbase_layer/utils/media.py`, uses `mlx-community/whisper-medium` |
 
 ---
 

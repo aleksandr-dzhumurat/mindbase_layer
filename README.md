@@ -1,68 +1,164 @@
-# Mindbase layer
+<p align="center">
+  <img src="assets/mascot_small.png" alt="Mindbase mascot" width="200">
+</p>
 
-Token-efficient retrieval layer for agentic pipeline.
+<h1 align="center">Mindbase</h1>
+
+<p align="center">
+  Desktop app and CLI for processing video/audio recordings: transcribe, summarize, and push results to Slack or Confluence.
+</p>
+
+<p align="center">
+  <img alt="version" src="https://img.shields.io/badge/version-0.1.12-blue">
+  <img alt="python" src="https://img.shields.io/badge/python-3.11%2B-blue">
+  <img alt="platform" src="https://img.shields.io/badge/platform-macOS-lightgrey">
+  <img alt="package manager" src="https://img.shields.io/badge/package%20manager-uv-de3f24">
+</p>
+
+<p align="center">
+  <a href="http://www.youtube.com/watch?v=uupB2A7dG5k" title="mindbase demo">
+    <img src="http://img.youtube.com/vi/uupB2A7dG5k/0.jpg" alt="mindbase demo">
+  </a>
+</p>
+
+## Contents
+
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Desktop app features](#desktop-app-features)
+- [CLI (mindbase-tool)](#cli-mindbase-tool)
+- [As a Python package](#as-a-python-package)
+- [Local development](#local-development)
+- [Audio processing scripts](#audio-processing-scripts)
 
 ## Installation
 
-[![mindbase demo](http://img.youtube.com/vi/uupB2A7dG5k/0.jpg)](http://www.youtube.com/watch?v=uupB2A7dG5k "mindbase demo")
-
-
-### CLI usage
-
-Install `mindbase` as a standalone console command:
-
 ```bash
-make cli-install
+make install
 ```
 
 This will:
-1. Copy the package and dependencies to `~/.local/share/mindbase/`
-2. Create a Python venv and install all requirements there
-3. Prompt for an API key and save it to `~/.local/share/mindbase/.env` (chmod 600):
-   - First asks for `VERTEX_SA_KEY_FILE` — provide the **absolute path** to a Google service-account `.json` file, or press **Enter** to skip
-   - If skipped, asks for `NEBIUS_API_KEY` (input masked with `*`)
-   - Only one key is required; if `VERTEX_SA_KEY_FILE` is set, `NEBIUS_API_KEY` is not needed
-4. Create a symlink at `~/.local/bin/mindbase`
+1. Copy the package, scripts, and assets to `~/.local/share/mindbase/`
+2. Create a Python venv and install all requirements
+3. Copy env vars from repo `.env` (or prompt for `NEBIUS_API_KEY`) and save to `~/.local/share/mindbase/.env`
+4. Create symlinks at `~/.local/bin/mindbase`, `~/.local/bin/mindbase-cli`, and `~/.local/bin/mindbase-tool`
 
-If `~/.local/bin` is not on your `$PATH`, the installer will warn you and print the line to add to `~/.zshrc`.
+> [!TIP]
+> If `~/.local/bin` is not on your `$PATH`, the installer will print the line to add to `~/.zshrc`.
 
-**Start the REPL:**
+**Build and start the desktop app:**
 
 ```bash
+make install
 mindbase
 ```
 
+`mindbase` prints the path to its log file (`~/.local/share/mindbase/workflow.log`) on startup.
 
-### As a Python package (from GitHub)
-
-Install `mindbase_layer` into external project:
+**Start the terminal REPL:**
 
 ```bash
-# latest main branch
-uv add "mindbase-layer @ git+https://github.com/aleksandr-dzhumurat/automation_toolkit.git"
-
-# pin to a specific tag
-uv add "mindbase-layer @ git+https://github.com/aleksandr-dzhumurat/automation_toolkit.git@v0.1.0"
-
-# with local Apple Silicon transcription (mlx-whisper)
-uv add "mindbase-layer[whisper] @ git+https://github.com/aleksandr-dzhumurat/automation_toolkit.git"
+mindbase-cli
 ```
 
-Or add to your `pyproject.toml`:
+**Follow the app log:**
 
-```toml
-dependencies = [
-    "mindbase-layer @ git+https://github.com/aleksandr-dzhumurat/automation_toolkit.git@main",
-]
+```bash
+make follow
 ```
 
-Or to requirements.txt
+## Configuration
 
-```shell
-mindbase-layer @ git+https://github.com/aleksandr-dzhumurat/automation_toolkit.git
+Copy `env.template` to `.env` and fill in the values you need:
+
+```bash
+cp env.template .env
 ```
 
-### Local development
+See `env.template` for all supported variables. Key settings:
+
+| Variable | Description |
+|---|---|
+| `MODEL_NAME` | LLM model name. Default: `Qwen/Qwen3-32B` (Nebius). Set to `gemini-2.5-flash` for Google Gemini |
+| `NEBIUS_API_KEY` | API key for Nebius AI Studio |
+| `GOOGLE_API_KEY` | API key for Google Gemini |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Path to service account JSON for Vertex AI (alternative to API key) |
+| `SLACK_WEBHOOK_URL` | Incoming Webhook URL (takes priority over bot token) |
+| `SLACK_BOT_TOKEN` / `SLACK_CHANNEL` | Bot token + channel for Slack Web API |
+| `CONFLUENCE_*` | Confluence base URL, email, token, and parent page URL (space key is extracted automatically) |
+| `SUPERHUMAN_API_TOKEN` | API token for Coda / Superhuman (from coda.io/account) |
+| `SUPERHUMAN_PARENT_DIR` | Coda folder URL or ID (e.g. `fl-...`) to create docs in |
+
+> [!NOTE]
+> All settings can also be configured from the **Settings** tab in the desktop app.
+
+## Desktop app features
+
+| | |
+|---|---|
+| 💬 **Chat** | Conversational interface with file search, PDF conversion, YouTube download, video summarization |
+| 🔀 **Workflow** | Configurable pipeline with toggleable steps — transcribe, summarize, and deliver |
+
+**Workflow pipeline steps:**
+
+- Transcribe video/audio to SRT (`mlx-whisper`, Apple Silicon)
+- Summarize transcript with LLM (with token counting and caching)
+- Post summary to Slack (webhook or bot)
+- Create Confluence page
+- Push to Superhuman (Coda)
+
+**Also:**
+
+- Accepts video (`.mp4`, `.mov`, `.webm`), audio (`.m4a`, `.mp3`), and text files (`.txt`, `.md`, `.srt`)
+- Real-time progress display with download progress bars
+- LLM provider routing: Nebius or Google Gemini (API key or Vertex AI credentials)
+
+## CLI (mindbase-tool)
+
+Non-interactive, scriptable entry point — one command in, artifacts out. Unlike `mindbase-cli`
+(chat REPL) and `mindbase` (desktop app), `mindbase-tool` takes flags and exits, so it's suited
+for shell scripts and cron jobs.
+
+**Summarize a recording (transcribe → summarize → translate):**
+
+```bash
+mindbase-tool summarize --input "Daily standup - 2026_08_20.mp4" --lang ru
+```
+
+Runs the full pipeline and moves the results into a directory named after the input file:
+- `<stem>.srt` — transcript
+- `<stem>_summary.md` — summary in the spoken language
+- `<stem>_summary_en.md` — English translation (only if `--lang` isn't `en`)
+
+Steps are skipped if their output already exists, so re-running only fills in what's missing.
+Accepts a local video/audio file or a YouTube URL.
+
+**Extract subtitles only:**
+
+```bash
+mindbase-tool transcribe --input recording.mp4 --lang en
+```
+
+**Translate an existing file to English:**
+
+```bash
+mindbase-tool translate --input recording_summary.md
+```
+
+Accepts `.md`, `.txt`, or `.srt` input; writes `<stem>_en.md` next to it.
+
+## As a Python package
+
+Install `mindbase_layer` into an external project:
+
+```bash
+uv add "mindbase-layer @ git+https://github.com/aleksandr-dzhumurat/mindbase_layer.git"
+
+# with local Apple Silicon transcription
+uv add "mindbase-layer[whisper] @ git+https://github.com/aleksandr-dzhumurat/mindbase_layer.git"
+```
+
+## Local development
 
 ```bash
 uv venv
@@ -70,149 +166,22 @@ source .venv/bin/activate
 uv pip install -e ".[whisper]"
 ```
 
-**Reset the API key:**
-
-```bash
-rm ~/.local/share/mindbase/.env
-make cli-install
-```
-
 **Upgrade after code changes:**
 
 ```bash
-make cli-install          # keeps the existing venv and .env
-make cli-install-fresh    # also rebuilds the venv from scratch
+make install              # keeps the existing venv and .env
+make cli-install-fresh    # also rebuilds the venv from scratch (force)
 ```
 
----
+## Audio processing scripts
 
-## Agent usage
+> [!NOTE]
+> Requires `ffmpeg` (`brew install ffmpeg` on macOS).
 
-Run chat using
-
-```shell
-make chat
-```
-
-Dialog example
-
-
-For now, one tool call is shown as an example — extracting an audio track from an .mp4 file
-
-```shell
-👨 You: LLM_Architectures_week_1.mp4
-🤖 Agent:
-
-The file path has been resolved to:
-`/Users/adzhumurat/Downloads/LLM_Architectures_week_1.mp4`
-```
-
-Then the ffmpeg magic begins (I'll probably wrap it in a separate background process later)
-
-```shell
-🤖 Thinking... ⠴ Input #0, mov,mp4,m4a,3gp,3g2,mj2, from '/Users/adzhumurat/Downloads/LLM_Architectures_week_1.mp4':
-  Metadata:
-    major_brand     : isom
-    minor_version   : 512
-    compatible_brands: isomiso2avc1mp41
-    encoder         : https://clipchamp.com
-    comment         : Create videos with https://clipchamp.com/en/video-editor - free online video editor, video compressor, video converter.
-  Duration: 02:30:40.03, start: 0.000000, bitrate: 743 kb/s
-
-🤖 Thinking... ⠹ Done! Audio saved to: /Users/adzhumurat/Downloads/LLM_Architectures_week_1.mp3
-```
-
-And after completion the bot waits for the next instructions
-
-```shell
-🤖 Agent: The audio has been successfully extracted and saved to:
-`/Users/adzhumurat/Downloads/LLM_Architectures_week_1.mp3`
-
-Let me know if you need anything else!
-```
-
-Over the next week I'll add more tools for filesystem operations, plus a memory layer and observability (most likely langfuse)
-
-
-
-## Tools
-
-### Markdown Validation
-
-Check markdown heading hierarchy:
 ```bash
-python src/check_md_hierarchy.py docs/README.md
-```
-
-See `docs/md_checking_rules.md` for validation rules.
-
-### Audio Processing
-
-Requires `ffmpeg` (`brew install ffmpeg` on macOS).
-
-**1. Extract audio from video:**
-```bash
-python scripts/extract_audio.py ~/Downloads/recording.mp4
-```
-Output: `~/Downloads/recording.mp3`
-
-**2. Detect silence intervals:**
-```bash
-python scripts/silence_detector.py ~/Downloads/recording.mp3
-```
-Output: `~/Downloads/recording_silence.log`
-
-**3. Split audio into 300-500s chunks at silence points:**
-```bash
-python scripts/audio_splitter.py ~/Downloads/recording.mp3
-```
-Output:
-- `~/Downloads/recording_silence.split.log` - split points log
-- `~/Downloads/recording/recording_chunk_01.mp3` - audio chunks
-- `~/Downloads/recording/recording_chunk_02.mp3`
-- ...
-
-**4. Transcribe audio to text:**
-
-Option A — Whisper (Apple Silicon, no API key required):
-```bash
-uv run python scripts/whisper_to_srt.py ~/Downloads/recording_chunk_01.mp3
-```
-Output: `~/Downloads/recording_chunk_01.srt`
-
-Requires `mlx-whisper` and `tqdm`: `uv pip install mlx-whisper tqdm`
-
-Option B — Google API:
-```bash
-python scripts/cloud_audio_summarizer.py --prefix recording_chunk --limit 10
-```
-Output: `data/recognized_speech/recording_chunk_01.txt`, ...
-
-Requires `GOOGLE_API_KEY` env var.
-
-**5. Merge transcribed text files:**
-```bash
-python scripts/text_merger.py --prefix recording_chunk
-```
-Output: `data/recognized_speech/recording_chunk_merged.txt`
-
-
-
-## Services
-
-### Chroma
-Version endpoint: http://0.0.0.0:8000/api/v2/version
-
-### Ollama Models
-```bash
-ollama pull granite3.3:8b
-ollama pull nomic-embed-text
-```
-
-### Ollama Embeddings Generation
-```bash
-curl http://localhost:11434/api/embeddings -d '{
-  "model": "nomic-embed-text",
-  "prompt": "Hello, this is a test"
-}'
+python scripts/process_media.py extract ~/Downloads/recording.mp4      # extract audio → .mp3
+python scripts/process_media.py compress ~/Downloads/recording.mp4     # compress video → smaller .mp4
+python scripts/audio_splitter.py ~/Downloads/recording.mp3             # split at silence → chunks
+python scripts/whisper_to_srt.py ~/Downloads/chunk_01.mp3              # transcribe → .srt
+python scripts/text_merger.py --prefix chunk                            # merge text files
 ```

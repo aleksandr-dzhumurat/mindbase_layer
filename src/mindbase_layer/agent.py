@@ -6,10 +6,9 @@ from pathlib import Path
 from langfuse import get_client
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.agent import InstrumentationSettings
-from google.oauth2 import service_account
 from pydantic_ai.models.google import GoogleModel
 from pydantic_ai.models.openai import OpenAIChatModel
-from pydantic_ai.providers.google_cloud import GoogleCloudProvider
+from pydantic_ai.providers.google import GoogleProvider
 from pydantic_ai.providers.nebius import NebiusProvider
 
 from . import tools
@@ -21,7 +20,7 @@ from .agent_core.prompts import (
     home_dir_prompt,
 )
 
-Agent.instrument_all(InstrumentationSettings(include_content=True, version=1))
+Agent.instrument_all(InstrumentationSettings(include_content=True, version=5))
 langfuse = get_client()
 logger = logging.getLogger(__name__)
 
@@ -47,53 +46,52 @@ class TranslationDependencies:
     text: str
 
 
-_NEBIUS_MODEL_NAMES = {
-    'main_model': 'Qwen/Qwen3-32B',
-    'retrieval_model': 'Qwen/Qwen3-30B-A3B-Instruct-2507',
-    'translation_model': 'Qwen/Qwen3-32B',
-}
+DEFAULT_NEBIUS_MODEL = 'Qwen/Qwen3-32B'
+DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash'
 
-_GOOGLE_MODEL_NAMES = {
-    'main_model': 'gemini-2.5-flash',
-    'retrieval_model': 'gemini-2.5-flash',
-    'translation_model': 'gemini-2.5-flash',
-}
+def get_model():
+    model_name = os.getenv('MODEL_NAME', '')
 
-
-def get_model(model_type: str) -> GoogleModel | OpenAIChatModel:
-    vertex_sa_key_file = os.getenv('VERTEX_SA_KEY_FILE')
-    if vertex_sa_key_file:
-        credentials = service_account.Credentials.from_service_account_file(
-            vertex_sa_key_file,
-            scopes=['https://www.googleapis.com/auth/cloud-platform'],
-        )
-        provider = GoogleCloudProvider(
-            credentials=credentials,
-            project=os.getenv('GOOGLE_CLOUD_PROJECT', 'ai-agent-delivery'),
-        )
-        return GoogleModel(_GOOGLE_MODEL_NAMES[model_type], provider=provider)
+    if model_name.startswith('gemini'):
+        api_key = os.getenv('GOOGLE_API_KEY')
+        if os.getenv('GOOGLE_APPLICATION_CREDENTIALS'):
+            from pydantic_ai.providers.google_cloud import GoogleCloudProvider
+            provider = GoogleCloudProvider(
+                project=os.getenv('GOOGLE_CLOUD_PROJECT'),
+                location=os.getenv('GOOGLE_CLOUD_LOCATION', 'us-central1'),
+            )
+            logger.info('Using Google Cloud (Vertex AI) provider, model=%s', model_name)
+        elif api_key:
+            provider = GoogleProvider(api_key=api_key)
+            logger.info('Using Google API key provider, model=%s', model_name)
+        else:
+            raise RuntimeError('Gemini model requires GOOGLE_APPLICATION_CREDENTIALS or GOOGLE_API_KEY')
+        return GoogleModel(model_name, provider=provider)
 
     api_key = os.getenv('NEBIUS_API_KEY')
     if not api_key:
         raise RuntimeError('NEBIUS_API_KEY environment variable is not set')
-    return OpenAIChatModel(_NEBIUS_MODEL_NAMES[model_type], provider=NebiusProvider(api_key=api_key))
+    if not model_name:
+        model_name = DEFAULT_NEBIUS_MODEL
+    logger.info('Using Nebius provider, model=%s', model_name)
+    return OpenAIChatModel(model_name, provider=NebiusProvider(api_key=api_key))
 
 retrieval_agent = Agent(
-    get_model('retrieval_model'),
+    get_model(),
     instructions=RETRIEVAL_AGENT_INSTRUCTIONS,
     deps_type=RetrievalDependencies,
     output_type=str,
 )
 
 translation_agent = Agent(
-    get_model('translation_model'),
+    get_model(),
     instructions=TRANSLATION_INSTRUCTIONS,
     deps_type=TranslationDependencies,
     output_type=str,
 )
 
 _summarizer_agent = Agent(
-    get_model('main_model'),
+    get_model(),
     instructions=SUMMARIZE_INSTRUCTIONS,
     deps_type=SummarizeDependencies,
     output_type=str,
@@ -102,8 +100,13 @@ _summarizer_agent = Agent(
 
 @_summarizer_agent.system_prompt
 def summarize_system_prompt(ctx: RunContext[SummarizeDependencies]) -> str:
+    jira_base = os.getenv("JIRA_BASE_URL", "")
+    jira_line = ""
+    if jira_base:
+        jira_line = f"\nJIRA_BASE_URL: {jira_base}\n"
     return (
-        f"Respond in: {ctx.deps.language}\n\n"
+        f"Respond in: {ctx.deps.language}\n"
+        f"{jira_line}\n"
         f"Transcript:\n{ctx.deps.text}"
     )
 
@@ -115,7 +118,7 @@ def query_documents(ctx: RunContext[RetrievalDependencies], query: str) -> str:
 
 
 project_manager_agent = Agent(
-    get_model('main_model'),
+    get_model(),
     instructions=PROJECT_MANAGER_INSTRUCTIONS,
     deps_type=SupportDependencies
 )
