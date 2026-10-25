@@ -102,3 +102,28 @@ def _build_model() -> Model:
     if not model_name:
         model_name = "Qwen/Qwen3-32B"
     return OpenAIChatModel(model_name, provider=NebiusProvider(api_key=api_key))
+
+
+class GeminiAdapter:
+    """Adapter for Gemini vision models to analyze images using google-genai."""
+
+    def __init__(self, model: str | None = None):
+        self.model = model or "gemini-2.5-flash"
+        self._client = None
+
+    @property
+    def client(self):
+        if self._client is None:
+            from google import genai
+            self._client = genai.Client()
+        return self._client
+
+    def analyze_image(self, image_path: Path | str, prompt: str) -> str:
+        from PIL import Image
+        im = Image.open(image_path)
+        response = self.client.models.generate_content(
+            model=self.model,
+            contents=[im, prompt],
+        )
+        return response.text or ""
+

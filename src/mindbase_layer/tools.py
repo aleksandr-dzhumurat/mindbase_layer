@@ -2,7 +2,15 @@ import logging
 import shutil
 from pathlib import Path
 
-from .utils.media import convert_to_mp3, extract_audio_pipeline, transcribe
+from .agent_core.llm_adapter import GeminiAdapter
+from .agent_core.prompts import REC2DOC_FRAME_ANALYSIS_PROMPT
+from .utils.media import (
+    Frame,
+    convert_to_mp3,
+    extract_audio_pipeline,
+    retrieve_frames_pipeline,
+    transcribe,
+)
 from .utils.pdf_to_md import convert, reformat_image_links
 from .utils.retrieve_md import DocumentIndex, DocumentNode, squash_srt
 from .utils.youtube import download_audio as yt_download_audio
@@ -166,3 +174,47 @@ def remove_file(file_path: str) -> str:
     path.unlink()
     return f"File removed: {path}"
 
+
+def analyze_frames(
+    frames: list[Frame], frames_dir: Path, gemini: GeminiAdapter, workers: int = 8
+) -> tuple[str, dict[str, str]]:
+    """Run Gemini vision over extracted frames.
+
+    The per-frame API calls are IO-bound, so they run concurrently on a
+    thread pool of `workers` threads (the google-genai client is thread-safe;
+    each generate_content call is an independent HTTP request). Results keep
+    the original frame order regardless of completion order.
+
+    Returns (concatenated per-frame records for synthesis, filename -> Gemini
+    `text` for every analyzed frame).
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    def _analyze(fr: Frame) -> str:
+        try:
+            return gemini.analyze_image(frames_dir / fr.filename, REC2DOC_FRAME_ANALYSIS_PROMPT)
+        except Exception as exc:  # noqa: BLE001 - one bad frame must not kill the run
+            logger.warning("Frame %s analysis failed: %s", fr.filename, exc)
+            return "UNVERIFIABLE: frame analysis failed."
+
+    descs: list[str] = [""] * len(frames)
+    done = 0
+    max_workers = max(1, min(workers, len(frames)))
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        future_to_idx = {pool.submit(_analyze, fr): i for i, fr in enumerate(frames)}
+        for future in as_completed(future_to_idx):
+            idx = future_to_idx[future]
+            descs[idx] = future.result().strip()
+            done += 1
+            print(
+                f"\r>> Analyzed {done}/{len(frames)} frames"
+                f" (workers={max_workers}, last: t={frames[idx].timestamp}) ...",
+                end="",
+                flush=True,
+            )
+    print()
+
+    blocks = [
+        f"### {fr.filename} (t={fr.timestamp})\n{desc}" for fr, desc in zip(frames, descs)
+    ]
+    return "\n\n".join(blocks), {fr.filename: desc for fr, desc in zip(frames, descs)}

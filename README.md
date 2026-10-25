@@ -181,7 +181,11 @@ make cli-install-fresh    # also rebuilds the venv from scratch (force)
 ```bash
 python scripts/process_media.py extract ~/Downloads/recording.mp4      # extract audio → .mp3
 python scripts/process_media.py compress ~/Downloads/recording.mp4     # compress video → smaller .mp4
+python scripts/process_media.py autocut ~/Downloads/recording.mp4      # remove silent sections → _cut.mp4
+python scripts/process_media.py autocut ~/Downloads/recording.mp3      # remove silent sections → _cut.mp3
 python scripts/audio_splitter.py ~/Downloads/recording.mp3             # split at silence → chunks
-python scripts/whisper_to_srt.py ~/Downloads/chunk_01.mp3              # transcribe → .srt
+python scripts/audio_splitter.py ~/Downloads/recording.mp3 --dry-run   # export silence intervals only
+python scripts/whisper_to_srt.py ~/Downloads/chunk_01.mp3              # transcribe → .srt (English default)
+python scripts/whisper_to_srt.py ~/Downloads/chunk_01.mp3 --language ru # transcribe in Russian
 python scripts/text_merger.py --prefix chunk                            # merge text files
 ```
