@@ -4,6 +4,7 @@ Audio Splitter - Splits audio files into 300-500 second intervals at silence poi
 
 Usage:
     uv run python scripts/audio_splitter.py <audio.mp3> [--min-interval 300] [--max-interval 500] [--dry-run]
+    uv run python scripts/audio_splitter.py  ~/Documents/mai_lectures/lecture_2026-10-12_mlflow_compressed.mp3 --dry-run
 """
 
 import argparse
